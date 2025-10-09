@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 #![no_std]
 #![cfg_attr(feature = "nightly", allow(internal_features), feature(core_intrinsics))]
 #![cfg_attr(feature = "nightly", feature(portable_simd))]
@@ -106,7 +107,7 @@ fn count_shared_avx2(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-/// Returns the number of characters shared between two slices
+/// Returns the number of initial characters shared between two slices
 #[cfg(all(target_feature="avx2", not(miri)))]
 #[inline]
 pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
@@ -188,21 +189,21 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-/// Returns the number of characters shared between two slices
+/// Returns the number of initial characters shared between two slices
 #[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon", not(miri)))]
 #[inline]
 pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
     count_shared_neon(a, b)
 }
 
-/// Returns the number of characters shared between two slices
+/// Returns the number of initial characters shared between two slices
 #[cfg(all(feature = "nightly", target_arch = "aarch64", target_feature = "neon", not(miri)))]
 #[inline]
 pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
     count_shared_simd(a, b)
 }
 
-/// Returns the number of characters shared between two slices
+/// Returns the number of initial characters shared between two slices
 #[cfg(any(all(not(target_feature="avx2"), not(target_feature="neon")), miri))]
 #[inline]
 pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
