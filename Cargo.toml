@@ -1,0 +1,18 @@
+[package]
+name = "fast-slice-utils"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+nightly = [] # Uses features in the nightly tool chain for better performance
+
+[dependencies]
+
+[dev-dependencies]
+divan = "0.1.21"
+rand = { version = "0.9.0" }
+rand_distr = { version = "0.5.1" }
+
+[[bench]]
+name = "find_prefix_overlap"
+harness = false
