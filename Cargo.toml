@@ -6,7 +6,7 @@ license = "MIT"
 description = "Highly optimized slice utilities using SIMD instructions when available"
 repository = "https://github.com/luketpeterson/fast-slice-utils"
 keywords = ["simd", "performance", "slice", "avx2", "neon"]
-categories = ["algorithms", "performance", "no-std", "text-processing", "parsing"]
+categories = ["algorithms", "no-std", "text-processing", "parsing"]
 readme = "README.md"
 
 [features]
