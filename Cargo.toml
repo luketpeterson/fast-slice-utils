@@ -2,6 +2,12 @@
 name = "fast-slice-utils"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Highly optimized slice utilities using SIMD instructions when available"
+repository = "https://github.com/luketpeterson/fast-slice-utils"
+keywords = ["simd", "performance", "slice", "avx2", "neon"]
+categories = ["algorithms", "performance", "no-std", "text-processing", "parsing"]
+readme = "README.md"
 
 [features]
 nightly = [] # Uses features in the nightly tool chain for better performance
