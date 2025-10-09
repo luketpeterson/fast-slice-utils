@@ -107,13 +107,6 @@ fn count_shared_avx2(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-/// Returns the number of initial characters shared between two slices
-#[cfg(all(target_feature="avx2", not(miri)))]
-#[inline]
-pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
-    count_shared_avx2(a, b)
-}
-
 #[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon", not(miri)))]
 #[inline(always)]
 fn count_shared_neon(p: &[u8], q: &[u8]) -> usize {
@@ -190,24 +183,40 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 }
 
 /// Returns the number of initial characters shared between two slices
-#[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon", not(miri)))]
+///
+/// The fastest (as measured by us) implementation is exported based on the platform and features.
+///
+/// - **AVX2**: AVX2 intrinsics (x86_64)
+/// - **NEON**: NEON intrinsics (aarch64)
+/// - **Portable SIMD**: Portable SIMD (requires nightly)
+/// - **Reference**: Reference scalar implementation
+///
+/// | AVX-512 | AVX2 | NEON | nightly | miri | Implementation    |
+/// |---------|------|------|---------|------|-------------------|
+/// | ✓       | -    | ✗    | -       | ✗    | **AVX2**          |
+/// | -       | ✓    | ✗    | -       | ✗    | **AVX2**          |
+/// | ✗       | ✗    | ✓    | ✗       | ✗    | **NEON**          |
+/// | ✗       | ✗    | ✓    | ✓       | ✗    | **Portable SIMD** |
+/// | -       | -    | -    | -       | ✓    | **Reference**     |
+///
 #[inline]
 pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
-    count_shared_neon(a, b)
-}
-
-/// Returns the number of initial characters shared between two slices
-#[cfg(all(feature = "nightly", target_arch = "aarch64", target_feature = "neon", not(miri)))]
-#[inline]
-pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
-    count_shared_simd(a, b)
-}
-
-/// Returns the number of initial characters shared between two slices
-#[cfg(any(all(not(target_feature="avx2"), not(target_feature="neon")), miri))]
-#[inline]
-pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
-    count_shared_reference(a, b)
+    #[cfg(all(target_feature="avx2", not(miri)))]
+    {
+        count_shared_avx2(a, b)
+    }
+    #[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon", not(miri)))]
+    {
+        count_shared_neon(a, b)
+    }
+    #[cfg(all(feature = "nightly", target_arch = "aarch64", target_feature = "neon", not(miri)))]
+    {
+        count_shared_simd(a, b)
+    }
+    #[cfg(any(all(not(target_feature="avx2"), not(target_feature="neon")), miri))]
+    {
+        count_shared_reference(a, b)
+    }
 }
 
 #[test]
