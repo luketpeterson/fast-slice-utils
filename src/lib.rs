@@ -230,7 +230,7 @@ pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
     {
         count_shared_avx512(a, b)
     }
-    #[cfg(all(target_feature="avx2", not(target_feature="avx512f"), not(miri)))]
+    #[cfg(all(target_feature="avx2", any(not(feature = "nightly"), not(target_feature="avx512f")), not(miri)))]
     {
         count_shared_avx2(a, b)
     }

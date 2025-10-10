@@ -240,7 +240,7 @@ fn count_shared_avx512(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-#[cfg( target_feature = "avx512f" )]
+#[cfg(all(feature = "nightly", target_feature = "avx512f" ))]
 #[divan::bench()]
 fn common_prefix_avx512(bencher: Bencher) {
     let pairs = long_prefix_setup();
