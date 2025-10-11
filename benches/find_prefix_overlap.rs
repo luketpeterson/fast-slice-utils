@@ -1,6 +1,5 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(feature = "nightly", feature(portable_simd))]
-#![cfg_attr(all(feature = "nightly", target_feature = "avx512f"), feature(stdarch_x86_avx512))]
 
 use divan::{Bencher, Divan};
 use rand::{Rng, SeedableRng, rngs::StdRng};
@@ -218,33 +217,29 @@ fn common_prefix_avx2(bencher: Bencher) {
 // The fastest path, period, if the hardware supports it
 // ****************************************************************************************************
 
-// Only takes 59% the time to run compared to count_shared_avx2
 #[cfg(target_feature = "avx512f")]
-fn count_shared_avx512<'a, 'b>(p: &'a [u8], q: &'b [u8]) -> usize {
+fn count_shared_avx512(p: &[u8], q: &[u8]) -> usize {
     use core::arch::x86_64::*;
     unsafe {
         let pl = p.len();
         let ql = q.len();
         let max_shared = pl.min(ql);
         if unlikely(max_shared == 0) { return 0 }
-        if unlikely(same_page::<64>(p) && same_page::<64>(q)) {
-            let pv = _mm512_loadu_si512(p.as_ptr() as _);
-            let qv = _mm512_loadu_si512(q.as_ptr() as _);
-            let ne = !_mm512_cmpeq_epi8_mask(pv, qv);
-            let count = _tzcnt_u64(ne);
-            if count != 64 || max_shared < 65 {
-                (count as usize).min(max_shared)
-            } else {
-                let new_len = max_shared-64;
-                64 + count_shared_avx512(core::slice::from_raw_parts(p.as_ptr().add(64), new_len), core::slice::from_raw_parts(q.as_ptr().add(64), new_len))
-            }
+        let m = (!(0u64 as __mmask64)) >> (64 - max_shared.min(64));
+        let pv = _mm512_mask_loadu_epi8(_mm512_setzero_si512(), m, p.as_ptr() as _);
+        let qv = _mm512_mask_loadu_epi8(_mm512_setzero_si512(), m, q.as_ptr() as _);
+        let ne = !_mm512_cmpeq_epi8_mask(pv, qv);
+        let count = _tzcnt_u64(ne);
+        if count != 64 || max_shared < 65 {
+            (count as usize).min(max_shared)
         } else {
-            count_shared_cold(p, q)
+            let new_len = max_shared-64;
+            64 + count_shared_avx512(core::slice::from_raw_parts(p.as_ptr().add(64), new_len), core::slice::from_raw_parts(q.as_ptr().add(64), new_len))
         }
     }
 }
 
-#[cfg( target_feature = "avx512f" )]
+#[cfg(target_feature = "avx512f")]
 #[divan::bench()]
 fn common_prefix_avx512(bencher: Bencher) {
     let pairs = long_prefix_setup();

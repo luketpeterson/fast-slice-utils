@@ -80,6 +80,29 @@ fn count_shared_cold(a: &[u8], b: &[u8]) -> usize {
     count_shared_reference(a, b)
 }
 
+#[cfg(target_feature = "avx512f")]
+#[inline(always)]
+fn count_shared_avx512(p: &[u8], q: &[u8]) -> usize {
+    use core::arch::x86_64::*;
+    unsafe {
+        let pl = p.len();
+        let ql = q.len();
+        let max_shared = pl.min(ql);
+        if unlikely(max_shared == 0) { return 0 }
+        let m = (!(0u64 as __mmask64)) >> (64 - max_shared.min(64));
+        let pv = _mm512_mask_loadu_epi8(_mm512_setzero_si512(), m, p.as_ptr() as _);
+        let qv = _mm512_mask_loadu_epi8(_mm512_setzero_si512(), m, q.as_ptr() as _);
+        let ne = !_mm512_cmpeq_epi8_mask(pv, qv);
+        let count = _tzcnt_u64(ne);
+        if count != 64 || max_shared < 65 {
+            (count as usize).min(max_shared)
+        } else {
+            let new_len = max_shared-64;
+            64 + count_shared_avx512(core::slice::from_raw_parts(p.as_ptr().add(64), new_len), core::slice::from_raw_parts(q.as_ptr().add(64), new_len))
+        }
+    }
+}
+
 #[cfg(all(target_feature="avx2", not(miri)))]
 #[inline(always)]
 fn count_shared_avx2(p: &[u8], q: &[u8]) -> usize {
@@ -186,6 +209,7 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 ///
 /// The fastest (as measured by us) implementation is exported based on the platform and features.
 ///
+/// - **AVX512**: AVX512 intrinsics (x86_64, requires nightly)
 /// - **AVX2**: AVX2 intrinsics (x86_64)
 /// - **NEON**: NEON intrinsics (aarch64)
 /// - **Portable SIMD**: Portable SIMD (requires nightly)
@@ -193,7 +217,7 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 ///
 /// | AVX-512 | AVX2 | NEON | nightly | miri | Implementation    |
 /// |---------|------|------|---------|------|-------------------|
-/// | ✓       | -    | ✗    | -       | ✗    | **AVX2**          |
+/// | ✓       | -    | ✗    | -       | ✗    | **AVX512**        |
 /// | -       | ✓    | ✗    | -       | ✗    | **AVX2**          |
 /// | ✗       | ✗    | ✓    | ✗       | ✗    | **NEON**          |
 /// | ✗       | ✗    | ✓    | ✓       | ✗    | **Portable SIMD** |
@@ -201,7 +225,11 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 ///
 #[inline]
 pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
-    #[cfg(all(target_feature="avx2", not(miri)))]
+    #[cfg(all(target_feature="avx512f", not(miri)))]
+    {
+        count_shared_avx512(a, b)
+    }
+    #[cfg(all(target_feature="avx2", not(target_feature="avx512f"), not(miri)))]
     {
         count_shared_avx2(a, b)
     }
