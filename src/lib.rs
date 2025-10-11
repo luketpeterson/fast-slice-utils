@@ -209,7 +209,7 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 ///
 /// The fastest (as measured by us) implementation is exported based on the platform and features.
 ///
-/// - **AVX512**: AVX512 intrinsics (x86_64, requires nightly)
+/// - **AVX-512**: AVX-512 intrinsics (x86_64, requires nightly)
 /// - **AVX2**: AVX2 intrinsics (x86_64)
 /// - **NEON**: NEON intrinsics (aarch64)
 /// - **Portable SIMD**: Portable SIMD (requires nightly)
@@ -217,8 +217,8 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 ///
 /// | AVX-512 | AVX2 | NEON | nightly | miri | Implementation    |
 /// |---------|------|------|---------|------|-------------------|
-/// | ✓       | -    | ✗    | -       | ✗    | **AVX512**        |
-/// | -       | ✓    | ✗    | -       | ✗    | **AVX2**          |
+/// | ✓       | -    | ✗    | -       | ✗    | **AVX-512**       |
+/// | ✗       | ✓    | ✗    | -       | ✗    | **AVX2**          |
 /// | ✗       | ✗    | ✓    | ✗       | ✗    | **NEON**          |
 /// | ✗       | ✗    | ✓    | ✓       | ✗    | **Portable SIMD** |
 /// | -       | -    | -    | -       | ✓    | **Reference**     |
