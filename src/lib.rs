@@ -2,7 +2,6 @@
 #![no_std]
 #![cfg_attr(feature = "nightly", allow(internal_features), feature(core_intrinsics))]
 #![cfg_attr(feature = "nightly", feature(portable_simd))]
-#![cfg_attr(all(feature = "nightly", target_feature = "avx512f"), feature(stdarch_x86_avx512))]
 
 // =======================================================================================
 // Various implementations of `find_prefix_overlap`
@@ -81,7 +80,7 @@ fn count_shared_cold(a: &[u8], b: &[u8]) -> usize {
     count_shared_reference(a, b)
 }
 
-#[cfg(all(feature = "nightly", target_feature = "avx512f"))]
+#[cfg(target_feature = "avx512f")]
 #[inline(always)]
 fn count_shared_avx512(p: &[u8], q: &[u8]) -> usize {
     use core::arch::x86_64::*;
@@ -218,7 +217,7 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 ///
 /// | AVX-512 | AVX2 | NEON | nightly | miri | Implementation    |
 /// |---------|------|------|---------|------|-------------------|
-/// | ✓       | -    | ✗    | ✓       | ✗    | **AVX512**        |
+/// | ✓       | -    | ✗    | -       | ✗    | **AVX512**        |
 /// | -       | ✓    | ✗    | -       | ✗    | **AVX2**          |
 /// | ✗       | ✗    | ✓    | ✗       | ✗    | **NEON**          |
 /// | ✗       | ✗    | ✓    | ✓       | ✗    | **Portable SIMD** |
@@ -226,11 +225,11 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 ///
 #[inline]
 pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
-    #[cfg(all(feature = "nightly", target_feature="avx512f", not(miri)))]
+    #[cfg(all(target_feature="avx512f", not(miri)))]
     {
         count_shared_avx512(a, b)
     }
-    #[cfg(all(target_feature="avx2", any(not(feature = "nightly"), not(target_feature="avx512f")), not(miri)))]
+    #[cfg(all(target_feature="avx2", not(target_feature="avx512f"), not(miri)))]
     {
         count_shared_avx2(a, b)
     }

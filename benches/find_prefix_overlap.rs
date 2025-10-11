@@ -1,6 +1,5 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(feature = "nightly", feature(portable_simd))]
-#![cfg_attr(all(feature = "nightly", target_feature = "avx512f"), feature(stdarch_x86_avx512))]
 
 use divan::{Bencher, Divan};
 use rand::{Rng, SeedableRng, rngs::StdRng};
@@ -218,7 +217,7 @@ fn common_prefix_avx2(bencher: Bencher) {
 // The fastest path, period, if the hardware supports it
 // ****************************************************************************************************
 
-#[cfg(all(feature = "nightly", target_feature = "avx512f"))]
+#[cfg(target_feature = "avx512f")]
 fn count_shared_avx512(p: &[u8], q: &[u8]) -> usize {
     use core::arch::x86_64::*;
     unsafe {
@@ -240,7 +239,7 @@ fn count_shared_avx512(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-#[cfg(all(feature = "nightly", target_feature = "avx512f" ))]
+#[cfg(target_feature = "avx512f")]
 #[divan::bench()]
 fn common_prefix_avx512(bencher: Bencher) {
     let pairs = long_prefix_setup();
