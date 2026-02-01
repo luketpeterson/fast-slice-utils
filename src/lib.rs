@@ -103,7 +103,7 @@ fn count_shared_avx512(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-#[cfg(all(target_feature="avx2", not(miri)))]
+#[cfg(all(target_feature="avx2", not(feature = "miri_safe")))]
 #[inline(always)]
 fn count_shared_avx2(p: &[u8], q: &[u8]) -> usize {
     use core::arch::x86_64::*;
@@ -130,7 +130,7 @@ fn count_shared_avx2(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-#[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon", not(miri)))]
+#[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon", not(feature = "miri_safe")))]
 #[inline(always)]
 fn count_shared_neon(p: &[u8], q: &[u8]) -> usize {
     use core::arch::aarch64::*;
@@ -174,7 +174,7 @@ fn count_shared_neon(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-#[cfg(all(feature = "nightly", not(miri)))]
+#[cfg(all(feature = "nightly", not(feature = "miri_safe")))]
 #[inline(always)]
 fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
     use core::simd::{u8x32, cmp::SimdPartialEq};
@@ -215,33 +215,33 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 /// - **Portable SIMD**: Portable SIMD (requires nightly)
 /// - **Reference**: Reference scalar implementation
 ///
-/// | AVX-512 | AVX2 | NEON | nightly | miri | Implementation    |
-/// |---------|------|------|---------|------|-------------------|
-/// | ✓       | -    | ✗    | -       | ✗    | **AVX-512**       |
-/// | ✗       | ✓    | ✗    | -       | ✗    | **AVX2**          |
-/// | ✗       | ✗    | ✓    | ✗       | ✗    | **NEON**          |
-/// | ✗       | ✗    | ✓    | ✓       | ✗    | **Portable SIMD** |
-/// | -       | -    | -    | -       | ✓    | **Reference**     |
+/// | AVX-512 | AVX2 | NEON | nightly | miri_safe | Implementation    |
+/// |---------|------|------|---------|-----------|-------------------|
+/// | ✓       | -    | ✗    | -       | ✗         | **AVX-512**       |
+/// | ✗       | ✓    | ✗    | -       | ✗         | **AVX2**          |
+/// | ✗       | ✗    | ✓    | ✗       | ✗         | **NEON**          |
+/// | ✗       | ✗    | ✓    | ✓       | ✗         | **Portable SIMD** |
+/// | -       | -    | -    | -       | ✓         | **Reference**     |
 ///
 #[inline]
 pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
-    #[cfg(all(target_feature="avx512f", not(miri)))]
+    #[cfg(all(target_feature="avx512f", not(feature = "miri_safe")))]
     {
         count_shared_avx512(a, b)
     }
-    #[cfg(all(target_feature="avx2", not(target_feature="avx512f"), not(miri)))]
+    #[cfg(all(target_feature="avx2", not(target_feature="avx512f"), not(feature = "miri_safe")))]
     {
         count_shared_avx2(a, b)
     }
-    #[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon", not(miri)))]
+    #[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon", not(feature = "miri_safe")))]
     {
         count_shared_neon(a, b)
     }
-    #[cfg(all(feature = "nightly", target_arch = "aarch64", target_feature = "neon", not(miri)))]
+    #[cfg(all(feature = "nightly", target_arch = "aarch64", target_feature = "neon", not(feature = "miri_safe")))]
     {
         count_shared_simd(a, b)
     }
-    #[cfg(any(all(not(target_feature="avx2"), not(target_feature="neon")), miri))]
+    #[cfg(any(all(not(target_feature="avx2"), not(target_feature="neon")), feature = "miri_safe"))]
     {
         count_shared_reference(a, b)
     }

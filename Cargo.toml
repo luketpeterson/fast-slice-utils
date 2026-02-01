@@ -12,6 +12,7 @@ readme = "README.md"
 
 [features]
 nightly = [] # Uses features in the nightly tool chain for better performance
+miri_safe = []
 
 [dependencies]
 
