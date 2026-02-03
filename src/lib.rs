@@ -130,7 +130,7 @@ fn count_shared_avx2(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-#[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon", not(feature = "miri_safe")))]
+#[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon"))]
 #[inline(always)]
 fn count_shared_neon(p: &[u8], q: &[u8]) -> usize {
     use core::arch::aarch64::*;
@@ -140,7 +140,13 @@ fn count_shared_neon(p: &[u8], q: &[u8]) -> usize {
         let max_shared = pl.min(ql);
         if unlikely(max_shared == 0) { return 0 }
 
-        if same_page::<16>(p) && same_page::<16>(q) {
+        let use_simd = if cfg!(feature = "miri_safe") {
+            pl >= 16 && ql >= 16
+        } else {
+            same_page::<16>(p) && same_page::<16>(q)
+        };
+
+        if use_simd {
             let pv = vld1q_u8(p.as_ptr());
             let qv = vld1q_u8(q.as_ptr());
             let eq = vceqq_u8(pv, qv);
@@ -219,7 +225,7 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 /// |---------|------|------|---------|-----------|-------------------|
 /// | ✓       | -    | ✗    | -       | ✗         | **AVX-512**       |
 /// | ✗       | ✓    | ✗    | -       | ✗         | **AVX2**          |
-/// | ✗       | ✗    | ✓    | ✗       | ✗         | **NEON**          |
+/// | ✗       | ✗    | ✓    | ✗       | ✓         | **NEON**          |
 /// | ✗       | ✗    | ✓    | ✓       | ✗         | **Portable SIMD** |
 /// | -       | -    | -    | -       | ✓         | **Reference**     |
 ///
@@ -233,7 +239,7 @@ pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
     {
         count_shared_avx2(a, b)
     }
-    #[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon", not(feature = "miri_safe")))]
+    #[cfg(all(not(feature = "nightly"), target_arch = "aarch64", target_feature = "neon"))]
     {
         count_shared_neon(a, b)
     }
@@ -241,7 +247,7 @@ pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
     {
         count_shared_simd(a, b)
     }
-    #[cfg(any(all(not(target_feature="avx2"), not(target_feature="neon")), feature = "miri_safe"))]
+    #[cfg(any(all(not(target_feature="avx2"), not(target_feature="neon")), all(feature = "miri_safe", not(all(target_arch="aarch64", target_feature="neon")))))]
     {
         count_shared_reference(a, b)
     }

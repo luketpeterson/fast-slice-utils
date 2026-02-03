@@ -19,9 +19,14 @@ The library is `no_std` compatible.
 - **ARM with NEON**: Uses 128-bit NEON instructions
 - **Portable SIMD**: Uses portable SIMD. (requires `nightly` feature)
 
+## Features
+
+- **`nightly`**: Enables optimizations that require a nightly compiler (e.g., AVX-512, Portable SIMD).
+- **`miri_safe`**: Enables compatibility with Miri, at the expense of performance.
+
 ## Safety (miri issue)
 
-Currently some of the implementations may over-read the provided slices, causing miri to become upset.  The code ensures that it never reads across a page boundary.  If a fix can be found (that doesn't hurt performance too badly) we will gladly integrate it.
+Some implementations may over-read the provided slices, which causes Miri to report errors. The code ensures that it never reads across a page boundary. Enabling the `miri_safe` feature ensures compatibility with Miri. If a fix can be found (that doesn't hurt performance too badly) we will gladly integrate it.
 
 ## Contributing
 
