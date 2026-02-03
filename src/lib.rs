@@ -58,8 +58,10 @@ pub(crate) use core::intrinsics::{likely, unlikely};
 //     }
 // }
 
+#[allow(unused)]
 const PAGE_SIZE: usize = 4096;
 
+#[allow(unused)]
 #[inline(always)]
 unsafe fn same_page<const VECTOR_SIZE: usize>(slice: &[u8]) -> bool {
     let address = slice.as_ptr() as usize;
@@ -75,12 +77,13 @@ fn count_shared_reference(p: &[u8], q: &[u8]) -> usize {
         .take_while(|(x, y)| x == y).count()
 }
 
+#[allow(unused)]
 #[cold]
 fn count_shared_cold(a: &[u8], b: &[u8]) -> usize {
     count_shared_reference(a, b)
 }
 
-#[cfg(target_feature = "avx512f")]
+#[cfg(all(target_feature = "avx512f", target_feature = "avx512bw"))]
 #[inline(always)]
 fn count_shared_avx512(p: &[u8], q: &[u8]) -> usize {
     use core::arch::x86_64::*;
@@ -93,7 +96,7 @@ fn count_shared_avx512(p: &[u8], q: &[u8]) -> usize {
         let pv = _mm512_mask_loadu_epi8(_mm512_setzero_si512(), m, p.as_ptr() as _);
         let qv = _mm512_mask_loadu_epi8(_mm512_setzero_si512(), m, q.as_ptr() as _);
         let ne = !_mm512_cmpeq_epi8_mask(pv, qv);
-        let count = _tzcnt_u64(ne);
+        let count = ne.trailing_zeros();
         if count != 64 || max_shared < 65 {
             (count as usize).min(max_shared)
         } else {
@@ -103,7 +106,8 @@ fn count_shared_avx512(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-#[cfg(all(target_feature="avx2", not(feature = "miri_safe")))]
+#[allow(unused)]
+#[cfg(target_feature = "avx2")]
 #[inline(always)]
 fn count_shared_avx2(p: &[u8], q: &[u8]) -> usize {
     use core::arch::x86_64::*;
@@ -112,12 +116,19 @@ fn count_shared_avx2(p: &[u8], q: &[u8]) -> usize {
         let ql = q.len();
         let max_shared = pl.min(ql);
         if unlikely(max_shared == 0) { return 0 }
-        if likely(same_page::<32>(p) && same_page::<32>(q)) {
+
+        let use_simd = if cfg!(feature = "miri_safe") {
+            pl >= 32 && ql >= 32
+        } else {
+            same_page::<32>(p) && same_page::<32>(q)
+        };
+
+        if likely(use_simd) {
             let pv = _mm256_loadu_si256(p.as_ptr() as _);
             let qv = _mm256_loadu_si256(q.as_ptr() as _);
             let ev = _mm256_cmpeq_epi8(pv, qv);
             let ne = !(_mm256_movemask_epi8(ev) as u32);
-            let count = _tzcnt_u32(ne);
+            let count = ne.trailing_zeros();
             if count != 32 || max_shared < 33 {
                 (count as usize).min(max_shared)
             } else {
@@ -180,7 +191,7 @@ fn count_shared_neon(p: &[u8], q: &[u8]) -> usize {
     }
 }
 
-#[cfg(all(feature = "nightly", not(feature = "miri_safe")))]
+#[cfg(feature = "nightly")]
 #[inline(always)]
 fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
     use core::simd::{u8x32, cmp::SimdPartialEq};
@@ -189,7 +200,14 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
         let ql = q.len();
         let max_shared = pl.min(ql);
         if unlikely(max_shared == 0) { return 0 }
-        if same_page::<32>(p) && same_page::<32>(q) {
+
+        let use_simd = if cfg!(feature = "miri_safe") {
+            pl >= 32 && ql >= 32
+        } else {
+            same_page::<32>(p) && same_page::<32>(q)
+        };
+
+        if use_simd {
             let mut p_array = [core::mem::MaybeUninit::<u8>::uninit(); 32];
             core::ptr::copy_nonoverlapping(p.as_ptr().cast(), (&mut p_array).as_mut_ptr(), 32);
             let pv = u8x32::from_array(core::mem::transmute(p_array));
@@ -215,7 +233,7 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 ///
 /// The fastest (as measured by us) implementation is exported based on the platform and features.
 ///
-/// - **AVX-512**: AVX-512 intrinsics (x86_64, requires nightly)
+/// - **AVX-512**: AVX-512 (F + BW) intrinsics (x86_64, requires nightly)
 /// - **AVX2**: AVX2 intrinsics (x86_64)
 /// - **NEON**: NEON intrinsics (aarch64)
 /// - **Portable SIMD**: Portable SIMD (requires nightly)
@@ -223,19 +241,19 @@ fn count_shared_simd(p: &[u8], q: &[u8]) -> usize {
 ///
 /// | AVX-512 | AVX2 | NEON | nightly | miri_safe | Implementation    |
 /// |---------|------|------|---------|-----------|-------------------|
-/// | ✓       | -    | ✗    | -       | ✗         | **AVX-512**       |
-/// | ✗       | ✓    | ✗    | -       | ✗         | **AVX2**          |
+/// | ✓       | -    | ✗    | -       | ✓         | **AVX-512**       |
+/// | ✗       | ✓    | ✗    | -       | ✓         | **AVX2**          |
 /// | ✗       | ✗    | ✓    | ✗       | ✓         | **NEON**          |
-/// | ✗       | ✗    | ✓    | ✓       | ✗         | **Portable SIMD** |
+/// | ✗       | ✗    | ✓    | ✓       | ✓         | **Portable SIMD** |
 /// | -       | -    | -    | -       | ✓         | **Reference**     |
 ///
 #[inline]
 pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
-    #[cfg(all(target_feature="avx512f", not(feature = "miri_safe")))]
+    #[cfg(all(target_feature="avx512f", target_feature="avx512bw"))]
     {
         count_shared_avx512(a, b)
     }
-    #[cfg(all(target_feature="avx2", not(target_feature="avx512f"), not(feature = "miri_safe")))]
+    #[cfg(all(target_feature="avx2", not(all(target_feature="avx512f", target_feature="avx512bw"))))]
     {
         count_shared_avx2(a, b)
     }
@@ -243,11 +261,11 @@ pub fn find_prefix_overlap(a: &[u8], b: &[u8]) -> usize {
     {
         count_shared_neon(a, b)
     }
-    #[cfg(all(feature = "nightly", target_arch = "aarch64", target_feature = "neon", not(feature = "miri_safe")))]
+    #[cfg(all(feature = "nightly", target_arch = "aarch64", target_feature = "neon"))]
     {
         count_shared_simd(a, b)
     }
-    #[cfg(any(all(not(target_feature="avx2"), not(target_feature="neon")), all(feature = "miri_safe", not(all(target_arch="aarch64", target_feature="neon")))))]
+    #[cfg(all(not(target_feature="avx2"), not(target_feature="neon")))]
     {
         count_shared_reference(a, b)
     }
@@ -278,6 +296,21 @@ fn find_prefix_overlap_test() {
         let overlap = find_prefix_overlap(test.0.as_bytes(), test.1.as_bytes());
         assert_eq!(overlap, test.2);
     }
+}
+
+#[test]
+fn find_prefix_overlap_long_test() {
+    let a = [b'A'; 70];
+    let mut b = [b'A'; 70];
+    assert_eq!(find_prefix_overlap(&a, &b), 70);
+    b[69] = b'B';
+    assert_eq!(find_prefix_overlap(&a, &b), 69);
+    b[69] = b'A';
+    b[64] = b'B';
+    assert_eq!(find_prefix_overlap(&a, &b), 64);
+    b[64] = b'A';
+    b[0] = b'B';
+    assert_eq!(find_prefix_overlap(&a, &b), 0);
 }
 
 /// A faster replacement for the stdlib version of [`starts_with`](slice::starts_with)
